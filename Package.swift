@@ -1,23 +1,44 @@
 // swift-tools-version: 5.9
-// The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 
 let package = Package(
     name: "SwiftHook",
     products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "SwiftHook",
-            targets: ["SwiftHook"]),
+            targets: ["SwiftHook"]
+        ),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/p-x9/fishhook", branch: "spm"),
+        .package(url: "https://github.com/p-x9/Echo", branch: "swift5.9"),
+        .package(url: "https://github.com/p-x9/MachOKit-SPM", .upToNextMajor(from: "0.2.0"))
     ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "SwiftHook"),
+            name: "SwiftHook",
+            dependencies: [
+                .product(name: "fishhook", package: "fishhook"),
+                .product(name: "Echo", package: "Echo"),
+                .product(name: "MachOKit", package: "MachOKit-SPM")
+            ],
+            linkerSettings: [
+                .unsafeFlags([
+                    "-Xlinker",
+                    "-interposable"
+                ])
+            ]
+        ),
         .testTarget(
             name: "SwiftHookTests",
-            dependencies: ["SwiftHook"]),
+            dependencies: ["SwiftHook"],
+            linkerSettings: [
+                .unsafeFlags([
+                    "-Xlinker",
+                    "-interposable"
+                ])
+            ]
+        ),
     ]
 )
