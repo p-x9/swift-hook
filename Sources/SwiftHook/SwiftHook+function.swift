@@ -63,34 +63,25 @@ extension SwiftHook {
     ) -> Bool {
         var first: String = first
         var second: String = second
+
         var firstSymbol: UnsafeMutableRawPointer?
         var secondSymbol: UnsafeMutableRawPointer?
 
-        let firstPtr = first.cString(using: .utf8)!
-        let secondPtr = second.cString(using: .utf8)!
-
         for i in 0..<_dyld_image_count() {
             let machO = MachOImage(ptr: _dyld_get_image_header(i))
-            for symbol in machO.symbols {
-                if firstSymbol == nil,
-                   strcmp(firstPtr, stdlib_demangleName(symbol.nameC)) == 0 {
-                    firstSymbol = .init(
-                        mutating: machO.ptr.advanced(
-                            by: symbol.offset
-                        )
-                    )
-                    first = String(cString: symbol.nameC + 1)
-                } else if secondSymbol == nil,
-                   strcmp(secondPtr, stdlib_demangleName(symbol.nameC)) == 0 {
-                    secondSymbol = .init(
-                        mutating: machO.ptr.advanced(
-                            by: symbol.offset
-                        )
-                    )
-                    second = String(cString: symbol.nameC + 1)
-                }
-                if firstSymbol != nil && secondSymbol != nil { break }
+            if let symbol = machO.symbol(named: first, mangled: false) {
+                firstSymbol = .init(
+                    mutating: machO.ptr.advanced(by: symbol.offset)
+                )
+                first = String(cString: symbol.nameC + 1)
             }
+            if let symbol = machO.symbol(named: second, mangled: false) {
+                secondSymbol = .init(
+                    mutating: machO.ptr.advanced(by: symbol.offset)
+                )
+                second = String(cString: symbol.nameC + 1)
+            }
+
 
             if firstSymbol != nil && secondSymbol != nil { break }
         }
