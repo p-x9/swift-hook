@@ -22,12 +22,6 @@ let package = Package(
                 .product(name: "fishhook", package: "fishhook"),
                 .product(name: "Echo", package: "Echo"),
                 .product(name: "MachOKit", package: "MachOKit-SPM")
-            ],
-            linkerSettings: [
-                .unsafeFlags([
-                    "-Xlinker",
-                    "-interposable"
-                ])
             ]
         ),
         .testTarget(
