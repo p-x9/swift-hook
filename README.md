@@ -25,7 +25,7 @@ Hook by rewriting Vtable.
 ### Function / Struct Method
 
 > [!NOTE]
-> To hook a function that exists in your own image, you must specify the following linker flag.
+> To hook a function that exists in your own image, you must specify the following linker flag.  
 > `"-Xlinker -interposable"`
 >
 > Reference: [johnno1962/SwiftTrace](https://github.com/johnno1962/SwiftTrace)
