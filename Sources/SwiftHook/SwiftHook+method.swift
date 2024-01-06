@@ -15,7 +15,7 @@ extension SwiftHook {
     public static func exchangeMethodImplementation(
         _ first: String,
         _ second: String,
-        for `class`: AnyClass.Type
+        for `class`: AnyClass
     ) throws {
         var isSucceeded: Bool
         isSucceeded = exchangeImplWithObjCRuntime(
@@ -38,7 +38,7 @@ extension SwiftHook {
     private static func exchangeImplWithVtable(
         _ first: String,
         _ second: String,
-        for `class`: AnyClass.Type
+        for `class`: AnyClass
     ) -> Bool {
         guard let metadata = reflect(`class`.self) as? ClassMetadata else {
             return false
@@ -50,7 +50,10 @@ extension SwiftHook {
         for entry in metadata.vtable {
             var info = Dl_info()
             dladdr(unsafeBitCast(entry.pointee, to: UnsafeRawPointer.self), &info)
-            let mangled = String(cString: info.dli_sname)
+            guard let dli_sname = info.dli_sname else {
+                continue
+            }
+            let mangled = String(cString: dli_sname)
             let demangled = stdlib_demangleName(mangled)
 
             if mangled == first || demangled == first {
@@ -81,15 +84,15 @@ extension SwiftHook {
     private static func exchangeImplWithObjCRuntime(
         _ first: String,
         _ second: String,
-        for `class`: AnyClass.Type
+        for `class`: AnyClass
     ) -> Bool {
-        let firstDemangled = stdlib_demangleName(first)
-        let secondDemangled = stdlib_demangleName(second)
-        let first = class_getInstanceMethod(`class`, NSSelectorFromString(first)) ??
-        class_getInstanceMethod(`class`, NSSelectorFromString(firstDemangled))
+        let firstSelector = NSSelectorFromString(first)
+        let secondSelector = NSSelectorFromString(second)
 
-        let second = class_getInstanceMethod(`class`, NSSelectorFromString(second)) ??
-        class_getInstanceMethod(`class`, NSSelectorFromString(secondDemangled))
+        let first = class_getInstanceMethod(`class`, firstSelector) ??
+            class_getClassMethod(`class`, firstSelector)
+        let second = class_getInstanceMethod(`class`, secondSelector) ??
+            class_getClassMethod(`class`, secondSelector)
 
         guard let first, let second else {
             return false
@@ -100,3 +103,21 @@ extension SwiftHook {
         return true
     }
 }
+
+@discardableResult
+func swizzle(class: AnyClass, orig origSelector: Selector, hooked hookedSelector: Selector) -> Bool {
+    guard let origMethod = class_getInstanceMethod(`class`, origSelector),
+          let hookedMethod = class_getInstanceMethod(`class`, hookedSelector) else {
+        return false
+    }
+
+    let didAddMethod = class_addMethod(`class`, origSelector,
+                                       method_getImplementation(hookedMethod),
+                                       method_getTypeEncoding(hookedMethod))
+    if didAddMethod {
+        class_replaceMethod(`class`, hookedSelector, method_getImplementation(origMethod), method_getTypeEncoding(origMethod))
+        return true
+    }
+    method_exchangeImplementations(origMethod, hookedMethod)
+    return true
+    }
