@@ -39,9 +39,9 @@ SwiftHook.exchangeFuncImplementation(
 
 /* using mangled symbol names */
 SwiftHook.exchangeFuncImplementation(
-    "SwiftHookTests.hook_assertionFailure(_: Swift.StaticString, _: Swift.String, file: Swift.StaticString, line: Swift.UInt, flags: Swift.UInt32) -> Swift.Never",
-    "SwiftHookTests.XXXXhook_assertionFailure(_: Swift.StaticString, _: Swift.String, file: Swift.StaticString, line: Swift.UInt, flags: Swift.UInt32) -> Swift.Never",
-    isMangled: true
+    "$s14SwiftHookTests21hook_assertionFailure__4file4line5flagss5NeverOs12StaticStringV_SSAISus6UInt32VtF",
+    "$s14SwiftHookTests25XXXXhook_assertionFailure__4file4line5flagss5NeverOs12StaticStringV_A2ISus6UInt32VtF",
+    isMangled: false
 )
 ```
 
