@@ -14,13 +14,6 @@ final class SwiftHookTests: XCTestCase {
             return
         }
 
-        // hook_assertionFailure ⇔ XXXXhook_assertionFailure
-        print(SwiftHook.exchangeFuncImplementation(
-            "$s14SwiftHookTests21hook_assertionFailure__4file4line5flagss5NeverOs12StaticStringV_SSAISus6UInt32VtF",
-            "$s14SwiftHookTests25XXXXhook_assertionFailure__4file4line5flagss5NeverOs12StaticStringV_A2ISus6UInt32VtF",
-            isMangled: false
-        ))
-
         // XXXXhook_assertionFailure ⇔ _assertionFailure
         print(SwiftHook.exchangeFuncImplementation(
             "$s14SwiftHookTests25XXXXhook_assertionFailure__4file4line5flagss5NeverOs12StaticStringV_A2ISus6UInt32VtF",
