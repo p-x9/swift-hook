@@ -17,50 +17,27 @@ extension SwiftHook {
         _ first: String,
         _ second: String,
         isMangled: Bool
-    ) -> Bool {
-        if isMangled {
-            return exchangeFuncImplementationMangled(first, second)
-        } else {
-            return exchangeFuncImplementationDeMangled(first, second)
-        }
+    ) throws {
+        var isSucceeded = false
+
+        isSucceeded = try _exchangeFuncImplementation(
+            first,
+            second,
+            isMangled: isMangled
+        )
+
+        if isSucceeded { return }
+
+        throw SwiftHookError.failedToExchangeFuncImplementation
     }
 }
 
 extension SwiftHook {
-    private static func exchangeFuncImplementationMangled(
+    private static func _exchangeFuncImplementation(
         _ first: String,
-        _ second: String
-    ) -> Bool {
-        var firstSymbol: UnsafeMutableRawPointer?
-        var secondSymbol: UnsafeMutableRawPointer?
-
-        for i in 0..<_dyld_image_count() {
-            let dylib = _dyld_get_image_name(i)
-            guard let handle = dlopen(dylib, RTLD_NOW) else {
-                continue
-            }
-            if firstSymbol == nil {
-                firstSymbol = dlsym(handle, first.cString(using: .utf8))
-            }
-            if secondSymbol == nil {
-                secondSymbol = dlsym(handle, second.cString(using: .utf8))
-            }
-
-            if firstSymbol != nil && secondSymbol != nil { break }
-        }
-
-        return exchangeFuncImplementation(
-            first,
-            second,
-            firstSymbol,
-            secondSymbol
-        )
-    }
-
-    private static func exchangeFuncImplementationDeMangled(
-        _ first: String,
-        _ second: String
-    ) -> Bool {
+        _ second: String,
+        isMangled: Bool
+    ) throws -> Bool {
         var first: String = first
         var second: String = second
 
@@ -69,21 +46,37 @@ extension SwiftHook {
 
         for i in 0..<_dyld_image_count() {
             let machO = MachOImage(ptr: _dyld_get_image_header(i))
-            if let symbol = machO.symbol(named: first, mangled: false) {
+            if let symbol = machO.symbol(
+                named: first,
+                mangled: isMangled
+            ) {
                 firstSymbol = .init(
                     mutating: machO.ptr.advanced(by: symbol.offset)
                 )
                 first = String(cString: symbol.nameC + 1)
             }
-            if let symbol = machO.symbol(named: second, mangled: false) {
+            if let symbol = machO.symbol(
+                named: second,
+                mangled: isMangled
+            ) {
                 secondSymbol = .init(
                     mutating: machO.ptr.advanced(by: symbol.offset)
                 )
                 second = String(cString: symbol.nameC + 1)
             }
 
-
             if firstSymbol != nil && secondSymbol != nil { break }
+        }
+
+        if firstSymbol == nil && secondSymbol == nil {
+            throw SwiftHookError.firstAndSecondSymbolAreNotFound
+        }
+
+        if firstSymbol == nil {
+            throw SwiftHookError.firstSymbolIsNotFound
+        }
+        if secondSymbol == nil {
+            throw SwiftHookError.secondSymbolIsNotFound
         }
 
         return exchangeFuncImplementation(
@@ -94,6 +87,7 @@ extension SwiftHook {
         )
     }
 
+    @discardableResult
     private static func exchangeFuncImplementation(
         _ first: String,
         _ second: String,
@@ -124,4 +118,3 @@ extension SwiftHook {
         return false
     }
 }
-

@@ -9,33 +9,33 @@ final class SwiftHookTests: XCTestCase {
         _ = disableExclusivityChecking
     }
 
-    func testExchangeFunc() {
+    func testExchangeFunc() throws {
         if setjump(&buf) != 0 {
             return
         }
 
         // XXXXhook_assertionFailure ⇔ _assertionFailure
-        print(SwiftHook.exchangeFuncImplementation(
+        try SwiftHook.exchangeFuncImplementation(
             "$s14SwiftHookTests25XXXXhook_assertionFailure__4file4line5flagss5NeverOs12StaticStringV_A2ISus6UInt32VtF",
             "$ss17_assertionFailure__4file4line5flagss5NeverOs12StaticStringV_A2HSus6UInt32VtF",
             isMangled: true
-        ))
+        )
 
         var optional: Int?
         let forceUnwrapped = optional!
     }
 
-    func testExchangeDemangledFunc() {
+    func testExchangeDemangledFunc() throws {
         if setjump(&buf) != 0 {
             return
         }
 
         // XXXXhook_assertionFailure ⇔ _assertionFailure
-        print(SwiftHook.exchangeFuncImplementation(
+        try SwiftHook.exchangeFuncImplementation(
             "SwiftHookTests.XXXXhook_assertionFailure(_: Swift.StaticString, _: Swift.StaticString, file: Swift.StaticString, line: Swift.UInt, flags: Swift.UInt32) -> Swift.Never",
             "Swift._assertionFailure(_: Swift.StaticString, _: Swift.StaticString, file: Swift.StaticString, line: Swift.UInt, flags: Swift.UInt32) -> Swift.Never",
             isMangled: false
-        ))
+        )
 
         var optional: Int?
         let forceUnwrapped = optional!
@@ -43,39 +43,39 @@ final class SwiftHookTests: XCTestCase {
 }
 
 extension SwiftHookTests {
-    func testExchangeFuncInSelfImage() {
+    func testExchangeFuncInSelfImage() throws {
         if setjump(&buf) != 0 {
             return
         }
 
         // hook_assertionFailure ⇔ XXXXhook_assertionFailure
-        print(SwiftHook.exchangeFuncImplementation(
+        try SwiftHook.exchangeFuncImplementation(
             "$s14SwiftHookTests21hook_assertionFailure__4file4line5flagss5NeverOs12StaticStringV_SSAISus6UInt32VtF",
             "$s14SwiftHookTests25XXXXhook_assertionFailure__4file4line5flagss5NeverOs12StaticStringV_SSAISus6UInt32VtF",
             isMangled: true
-        ))
+        )
 
         hook_assertionFailure("aaa", "bbbb", flags: 0)
     }
 
-    func testExchangeDemangledFuncInSelfImage() {
+    func testExchangeDemangledFuncInSelfImage() throws {
         if setjump(&buf) != 0 {
             return
         }
 
         // hook_assertionFailure ⇔ XXXXhook_assertionFailure
-        print(SwiftHook.exchangeFuncImplementation(
+        try SwiftHook.exchangeFuncImplementation(
             "SwiftHookTests.hook_assertionFailure(_: Swift.StaticString, _: Swift.String, file: Swift.StaticString, line: Swift.UInt, flags: Swift.UInt32) -> Swift.Never",
             "SwiftHookTests.XXXXhook_assertionFailure(_: Swift.StaticString, _: Swift.String, file: Swift.StaticString, line: Swift.UInt, flags: Swift.UInt32) -> Swift.Never",
             isMangled: false
-        ))
+        )
 
         hook_assertionFailure("aaa", "bbbb", flags: 0)
     }
 }
 
 extension SwiftHookTests {
-    func testExchangeStructFunction() {
+    func testExchangeStructFunction() throws {
         let item = StructItem()
 
         print(item.printA())
@@ -84,11 +84,11 @@ extension SwiftHookTests {
         XCTAssertEqual(item.printB(), "B")
 
         // printA ⇔ printB
-        print(SwiftHook.exchangeFuncImplementation(
+        try SwiftHook.exchangeFuncImplementation(
             "SwiftHookTests.StructItem.printA() -> Swift.String",
             "SwiftHookTests.StructItem.printB() -> Swift.String",
             isMangled: false
-        ))
+        )
 
         print(item.printA())
         print(item.printB())

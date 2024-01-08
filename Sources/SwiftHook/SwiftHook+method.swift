@@ -3,7 +3,7 @@
 //
 //
 //  Created by p-x9 on 2023/12/22.
-//  
+//
 //
 
 import Foundation
@@ -31,6 +31,8 @@ extension SwiftHook {
             for: `class`
         )
         if isSucceeded { return }
+
+        throw SwiftHookError.failedToExchangeMethodImplementation
     }
 }
 
@@ -103,21 +105,3 @@ extension SwiftHook {
         return true
     }
 }
-
-@discardableResult
-func swizzle(class: AnyClass, orig origSelector: Selector, hooked hookedSelector: Selector) -> Bool {
-    guard let origMethod = class_getInstanceMethod(`class`, origSelector),
-          let hookedMethod = class_getInstanceMethod(`class`, hookedSelector) else {
-        return false
-    }
-
-    let didAddMethod = class_addMethod(`class`, origSelector,
-                                       method_getImplementation(hookedMethod),
-                                       method_getTypeEncoding(hookedMethod))
-    if didAddMethod {
-        class_replaceMethod(`class`, hookedSelector, method_getImplementation(origMethod), method_getTypeEncoding(origMethod))
-        return true
-    }
-    method_exchangeImplementations(origMethod, hookedMethod)
-    return true
-    }
