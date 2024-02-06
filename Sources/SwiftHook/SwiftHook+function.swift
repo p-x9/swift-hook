@@ -49,7 +49,7 @@ extension SwiftHook {
             if let symbol = machO.symbol(
                 named: first,
                 mangled: isMangled
-            ) {
+            ), symbol.nlist.sectionNumber != nil {
                 firstSymbol = .init(
                     mutating: machO.ptr.advanced(by: symbol.offset)
                 )
@@ -58,7 +58,7 @@ extension SwiftHook {
             if let symbol = machO.symbol(
                 named: second,
                 mangled: isMangled
-            ) {
+            ), symbol.nlist.sectionNumber != nil {
                 secondSymbol = .init(
                     mutating: machO.ptr.advanced(by: symbol.offset)
                 )
