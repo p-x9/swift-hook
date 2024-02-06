@@ -55,17 +55,19 @@ extension SwiftHook {
             guard let dli_sname = info.dli_sname else {
                 continue
             }
+
+            // mangled
             let mangled = String(cString: dli_sname)
+            if mangled == first { firstEntry = entry }
+            if mangled == second { secondEntry = entry }
+            if firstEntry != nil && secondEntry != nil {
+                break
+            }
+
+            // demangled
             let demangled = stdlib_demangleName(mangled)
-
-            if mangled == first || demangled == first {
-                firstEntry = entry
-            }
-
-            if mangled == second || demangled == second {
-                secondEntry = entry
-            }
-
+            if demangled == first { firstEntry = entry }
+            if demangled == second { secondEntry = entry }
             if firstEntry != nil && secondEntry != nil {
                 break
             }
