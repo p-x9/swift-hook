@@ -44,28 +44,28 @@ extension SwiftHook {
         var firstSymbol: UnsafeMutableRawPointer?
         var secondSymbol: UnsafeMutableRawPointer?
 
-        for i in 0..<_dyld_image_count() {
-            let machO = MachOImage(ptr: _dyld_get_image_header(i))
-            if let symbol = machO.symbol(
-                named: first,
-                mangled: isMangled
-            ) {
-                firstSymbol = .init(
-                    mutating: machO.ptr.advanced(by: symbol.offset)
-                )
-                first = String(cString: symbol.nameC + 1)
-            }
-            if let symbol = machO.symbol(
-                named: second,
-                mangled: isMangled
-            ) {
-                secondSymbol = .init(
-                    mutating: machO.ptr.advanced(by: symbol.offset)
-                )
-                second = String(cString: symbol.nameC + 1)
-            }
+        if let (machO, symbol) = MachOImage.symbols(
+            named: first,
+            mangled: isMangled
+        ).first(where: {
+            $1.nlist.sectionNumber != nil
+        }) {
+            firstSymbol = .init(
+                mutating: machO.ptr.advanced(by: symbol.offset)
+            )
+            first = String(cString: symbol.nameC + 1)
+        }
 
-            if firstSymbol != nil && secondSymbol != nil { break }
+        if let (machO, symbol) = MachOImage.symbols(
+            named: second,
+            mangled: isMangled
+        ).first(where: {
+            $1.nlist.sectionNumber != nil
+        }) {
+            secondSymbol = .init(
+                mutating: machO.ptr.advanced(by: symbol.offset)
+            )
+            second = String(cString: symbol.nameC + 1)
         }
 
         if firstSymbol == nil && secondSymbol == nil {

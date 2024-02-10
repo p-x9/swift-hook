@@ -50,22 +50,31 @@ extension SwiftHook {
         var secondEntry: UnsafeMutablePointer<ClassMetadata.SIMP?>?
 
         for entry in metadata.vtable {
-            var info = Dl_info()
-            dladdr(unsafeBitCast(entry.pointee, to: UnsafeRawPointer.self), &info)
-            guard let dli_sname = info.dli_sname else {
+            let entryPtr = unsafeBitCast(entry.pointee, to: UnsafeRawPointer.self)
+            guard let (_, symbol) = MachOImage.symbol(for: entryPtr) else {
                 continue
             }
-            let mangled = String(cString: dli_sname)
+
+            // mangled
+            var mangled = String(cString: symbol.nameC)
+            if mangled == first { firstEntry = entry }
+            if mangled == second { secondEntry = entry }
+            if firstEntry != nil && secondEntry != nil {
+                break
+            }
+
+            // mangled (omitted first `_`)
+            mangled = String(cString: symbol.nameC + 1)
+            if mangled == first { firstEntry = entry }
+            if mangled == second { secondEntry = entry }
+            if firstEntry != nil && secondEntry != nil {
+                break
+            }
+
+            // demangled
             let demangled = stdlib_demangleName(mangled)
-
-            if mangled == first || demangled == first {
-                firstEntry = entry
-            }
-
-            if mangled == second || demangled == second {
-                secondEntry = entry
-            }
-
+            if demangled == first { firstEntry = entry }
+            if demangled == second { secondEntry = entry }
             if firstEntry != nil && secondEntry != nil {
                 break
             }
