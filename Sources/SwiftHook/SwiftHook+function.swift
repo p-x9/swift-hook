@@ -102,18 +102,34 @@ extension SwiftHook {
             print(firstSymbol, secondSymbol)
 #endif
 
+            var replaced1 = UnsafeMutableRawPointer(bitPattern: -1)
+            var replaced2 = UnsafeMutableRawPointer(bitPattern: -1)
+
             let f2s: Bool = rebindSymbol(
                 name: first,
                 replacement: secondSymbol,
-                replaced: nil
+                replaced: &replaced1
             )
             let s2f: Bool = rebindSymbol(
                 name: second,
                 replacement: firstSymbol,
-                replaced: nil
+                replaced: &replaced2
             )
 
-            return f2s && s2f
+            guard f2s && s2f else {
+                return false
+            }
+
+            guard let replaced1, let replaced2,
+                  Int(bitPattern: replaced1) != -1,
+                  Int(bitPattern: replaced2) != -1 else {
+#if DEBUG
+                print("target function is not used.")
+#endif
+                return true
+            }
+
+            return true
         }
         return false
     }
