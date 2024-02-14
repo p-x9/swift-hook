@@ -20,27 +20,63 @@ extension SwiftHook {
     ) throws {
         var isSucceeded = false
 
-        isSucceeded = try _exchangeFuncImplementation(
+        var first: String = first
+        var second: String = second
+
+        let (firstSymbol, secondSymbol) = try searchSymbols(
+            &first,
+            &second,
+            isMangled: isMangled
+        )
+
+        isSucceeded = _exchangeFuncImplementation(
             first,
             second,
-            isMangled: isMangled
+            firstSymbol,
+            secondSymbol
         )
 
         if isSucceeded { return }
 
         throw SwiftHookError.failedToExchangeFuncImplementation
     }
+
+
+    public static func hookFunction(
+        _ target: String,
+        _ replacement: String,
+        _ original: String? = nil,
+        isMangled: Bool
+    ) throws {
+        var isSucceeded = false
+
+        var target: String = target
+        var replacement: String = replacement
+
+        let (_, replacementSymbol) = try searchSymbols(
+            &target,
+            &replacement,
+            isMangled: isMangled
+        )
+
+        isSucceeded = try _hookFuncImplementation(
+            target,
+            replacementSymbol,
+            original: original
+        )
+
+        if isSucceeded { return }
+
+        throw SwiftHookError.failedToHookFunction
+    }
 }
 
 extension SwiftHook {
-    private static func _exchangeFuncImplementation(
-        _ first: String,
-        _ second: String,
+    private static func searchSymbols(
+        _ first: inout String,
+        _ second: inout String,
         isMangled: Bool
-    ) throws -> Bool {
-        var first: String = first
-        var second: String = second
-
+    ) throws -> (UnsafeMutableRawPointer, UnsafeMutableRawPointer) {
         var firstSymbol: UnsafeMutableRawPointer?
         var secondSymbol: UnsafeMutableRawPointer?
 
@@ -72,65 +108,96 @@ extension SwiftHook {
             throw SwiftHookError.firstAndSecondSymbolAreNotFound
         }
 
-        if firstSymbol == nil {
+        guard let firstSymbol else {
             throw SwiftHookError.firstSymbolIsNotFound
         }
-        if secondSymbol == nil {
+        guard let secondSymbol else {
             throw SwiftHookError.secondSymbolIsNotFound
         }
 
-        return exchangeFuncImplementation(
-            first,
-            second,
-            firstSymbol,
-            secondSymbol
-        )
+        return (firstSymbol, secondSymbol)
     }
 
     @discardableResult
-    private static func exchangeFuncImplementation(
+    private static func _exchangeFuncImplementation(
         _ first: String,
         _ second: String,
-        _ firstSymbol:  UnsafeMutableRawPointer?,
-        _ secondSymbol:  UnsafeMutableRawPointer?
+        _ firstSymbol:  UnsafeMutableRawPointer,
+        _ secondSymbol:  UnsafeMutableRawPointer
     ) -> Bool {
-        if let firstSymbol, let secondSymbol {
 #if DEBUG
-            print(stdlib_demangleName(first))
-            print("=>")
-            print(stdlib_demangleName(second))
-            print(firstSymbol, secondSymbol)
+        print(stdlib_demangleName(first))
+        print("<=>")
+        print(stdlib_demangleName(second))
+        print(firstSymbol, secondSymbol)
 #endif
 
-            var replaced1 = UnsafeMutableRawPointer(bitPattern: -1)
-            var replaced2 = UnsafeMutableRawPointer(bitPattern: -1)
+        var replaced1 = UnsafeMutableRawPointer(bitPattern: -1)
+        var replaced2 = UnsafeMutableRawPointer(bitPattern: -1)
 
-            let f2s: Bool = rebindSymbol(
-                name: first,
-                replacement: secondSymbol,
-                replaced: &replaced1
-            )
-            let s2f: Bool = rebindSymbol(
-                name: second,
-                replacement: firstSymbol,
-                replaced: &replaced2
-            )
+        let f2s: Bool = rebindSymbol(
+            name: first,
+            replacement: secondSymbol,
+            replaced: &replaced1
+        )
+        let s2f: Bool = rebindSymbol(
+            name: second,
+            replacement: firstSymbol,
+            replaced: &replaced2
+        )
 
-            guard f2s && s2f else {
-                return false
-            }
+        guard f2s && s2f else {
+            return false
+        }
 
-            guard let replaced1, let replaced2,
-                  Int(bitPattern: replaced1) != -1,
-                  Int(bitPattern: replaced2) != -1 else {
+        guard let replaced1, let replaced2,
+              Int(bitPattern: replaced1) != -1,
+              Int(bitPattern: replaced2) != -1 else {
 #if DEBUG
-                print("target function is not used.")
+            print("target function is not used.")
 #endif
-                return true
-            }
-
             return true
         }
-        return false
+
+        return true
+    }
+
+    @discardableResult
+    private static func _hookFuncImplementation(
+        _ target: String,
+        _ replacementSymbol:  UnsafeMutableRawPointer,
+        original: String?
+    ) throws -> Bool {
+        var replaced = UnsafeMutableRawPointer(bitPattern: -1)
+
+        let result: Bool = rebindSymbol(
+            name: target,
+            replacement: replacementSymbol,
+            replaced: &replaced
+        )
+
+        guard result else { return false }
+
+        guard let replaced,
+              Int(bitPattern: replaced) != -1 else {
+            return false
+        }
+
+        if let original {
+            var originalReplaced = UnsafeMutableRawPointer(bitPattern: -1)
+            let result: Bool = rebindSymbol(
+                name: original,
+                replacement: replaced,
+                replaced: &originalReplaced
+            )
+            guard result else { throw SwiftHookError.failedToSetOriginal }
+
+            guard let originalReplaced,
+                  Int(bitPattern: originalReplaced) != -1 else {
+                throw SwiftHookError.failedToSetOriginal
+            }
+        }
+
+        return true
     }
 }

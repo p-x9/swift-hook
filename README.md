@@ -22,13 +22,41 @@ Hook by rewriting Vtable.
 
 ## Usage
 
-### Function / Struct Method
-
 > [!NOTE]
-> To hook a function that exists in your own image, you must specify the following linker flag.  
+> To hook a function that exists in your own image, you must specify the following linker flag.
 > `"-Xlinker -interposable"`
 >
 > Reference: [johnno1962/SwiftTrace](https://github.com/johnno1962/SwiftTrace)
+
+### Hook
+
+#### Function / Struct Method
+
+The `targetFunction` implementation is replaced by the `replacementFunction` implementation.
+The original implementation is moved to `originalFunction`.
+
+It is possible to call an `originalFunction` within a `replacementFunction`.
+
+```swift
+try SwiftHook.hookFunction(
+    "SwiftHookTests.targetFunction() -> Swift.String",
+    "SwiftHookTests.replacementFunction() -> Swift.String",
+    "SwiftHookTests.originalFunction() -> Swift.String",
+    isMangled: false
+)
+
+/* using mangled symbol names */
+try SwiftHook.hookFunction(
+    "$s14SwiftHookTests14targetFunctionSSyF",
+    "$s14SwiftHookTests19replacementFunctionSSyF",
+    "$s14SwiftHookTests16originalFunctionSSyF",
+    isMangled: true
+)
+```
+
+### Exchange Implementation
+
+#### Function / Struct Method
 
 ```swift
 SwiftHook.exchangeFuncImplementation(
@@ -45,7 +73,7 @@ SwiftHook.exchangeFuncImplementation(
 )
 ```
 
-### Class Method
+#### Class Method
 
 ```swift
 /// Swift Class

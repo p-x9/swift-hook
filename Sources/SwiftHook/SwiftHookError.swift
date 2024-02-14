@@ -15,4 +15,7 @@ public enum SwiftHookError: Error {
     case firstAndSecondSymbolAreNotFound
 
     case failedToExchangeMethodImplementation
+
+    case failedToHookFunction
+    case failedToSetOriginal
 }
