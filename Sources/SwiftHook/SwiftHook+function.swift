@@ -40,6 +40,35 @@ extension SwiftHook {
 
         throw SwiftHookError.failedToExchangeFuncImplementation
     }
+
+
+    public static func hookFunction(
+        _ target: String,
+        _ replacement: String,
+        _ original: String? = nil,
+        isMangled: Bool
+    ) throws {
+        var isSucceeded = false
+
+        var target: String = target
+        var replacement: String = replacement
+
+        let (_, replacementSymbol) = try searchSymbols(
+            &target,
+            &replacement,
+            isMangled: isMangled
+        )
+
+        isSucceeded = try _hookFuncImplementation(
+            target,
+            replacementSymbol,
+            original: original
+        )
+
+        if isSucceeded { return }
+
+        throw SwiftHookError.failedToHookFunction
+    }
 }
 
 extension SwiftHook {
@@ -98,7 +127,7 @@ extension SwiftHook {
     ) -> Bool {
 #if DEBUG
         print(stdlib_demangleName(first))
-        print("=>")
+        print("<=>")
         print(stdlib_demangleName(second))
         print(firstSymbol, secondSymbol)
 #endif
@@ -128,6 +157,45 @@ extension SwiftHook {
             print("target function is not used.")
 #endif
             return true
+        }
+
+        return true
+    }
+
+    @discardableResult
+    private static func _hookFuncImplementation(
+        _ target: String,
+        _ replacementSymbol:  UnsafeMutableRawPointer,
+        original: String?
+    ) throws -> Bool {
+        var replaced = UnsafeMutableRawPointer(bitPattern: -1)
+
+        let result: Bool = rebindSymbol(
+            name: target,
+            replacement: replacementSymbol,
+            replaced: &replaced
+        )
+
+        guard result else { return false }
+
+        guard let replaced,
+              Int(bitPattern: replaced) != -1 else {
+            return false
+        }
+
+        if let original {
+            var originalReplaced = UnsafeMutableRawPointer(bitPattern: -1)
+            let result: Bool = rebindSymbol(
+                name: original,
+                replacement: replaced,
+                replaced: &originalReplaced
+            )
+            guard result else { throw SwiftHookError.failedToSetOriginal }
+
+            guard let originalReplaced,
+                  Int(bitPattern: originalReplaced) != -1 else {
+                throw SwiftHookError.failedToSetOriginal
+            }
         }
 
         return true
