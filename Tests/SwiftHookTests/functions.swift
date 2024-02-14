@@ -20,6 +20,7 @@ func new_empty_buf() -> jmp_buf {
 
 var buf: jmp_buf = new_empty_buf()
 
+@_disfavoredOverload
 public func hook_assertionFailure(
     _ prefix: StaticString,
     _ message: String,
@@ -42,6 +43,7 @@ public func hook_assertionFailure(
     return longjump(&buf, 1)
 }
 
+@_disfavoredOverload
 public func XXXXhook_assertionFailure(
     _ prefix: StaticString,
     _ message: String,

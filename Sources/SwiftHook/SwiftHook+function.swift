@@ -29,7 +29,7 @@ extension SwiftHook {
             isMangled: isMangled
         )
 
-        isSucceeded = _exchangeFuncImplementation(
+        isSucceeded = try _exchangeFuncImplementation(
             first,
             second,
             firstSymbol,
@@ -61,6 +61,7 @@ extension SwiftHook {
 
         isSucceeded = try _hookFuncImplementation(
             target,
+            replacement,
             replacementSymbol,
             original: original
         )
@@ -124,7 +125,7 @@ extension SwiftHook {
         _ second: String,
         _ firstSymbol:  UnsafeMutableRawPointer,
         _ secondSymbol:  UnsafeMutableRawPointer
-    ) -> Bool {
+    ) throws -> Bool {
 #if DEBUG
         print(stdlib_demangleName(first))
         print("<=>")
@@ -150,13 +151,14 @@ extension SwiftHook {
             return false
         }
 
-        guard let replaced1, let replaced2,
-              Int(bitPattern: replaced1) != -1,
+        guard let replaced1,
+              Int(bitPattern: replaced1) != -1 else {
+            throw SwiftHookError.failedToHookFirstFunction
+        }
+
+        guard let replaced2,
               Int(bitPattern: replaced2) != -1 else {
-#if DEBUG
-            print("target function is not used.")
-#endif
-            return true
+            throw SwiftHookError.failedToHookSecondFunction
         }
 
         return true
@@ -165,9 +167,21 @@ extension SwiftHook {
     @discardableResult
     private static func _hookFuncImplementation(
         _ target: String,
+        _ replacement: String,
         _ replacementSymbol:  UnsafeMutableRawPointer,
         original: String?
     ) throws -> Bool {
+
+#if DEBUG
+        if let original {
+            print(stdlib_demangleName(original))
+            print("=>")
+        }
+        print(stdlib_demangleName(target))
+        print("=>")
+        print(stdlib_demangleName(replacement))
+#endif
+
         var replaced = UnsafeMutableRawPointer(bitPattern: -1)
 
         let result: Bool = rebindSymbol(

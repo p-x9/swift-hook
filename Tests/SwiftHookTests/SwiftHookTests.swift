@@ -7,13 +7,16 @@ import MachOKit
 final class SwiftHookTests: XCTestCase {
     override class func setUp() {
         _ = disableExclusivityChecking
+
+        // If the function is not referenced, the indirect symbol is not generated.
+        let function1: (StaticString, StaticString, StaticString, UInt, UInt32) -> Never = XXXXhook_assertionFailure
+        let function2: (StaticString, String, StaticString, UInt, UInt32) -> Never = XXXXhook_assertionFailure
+        let function3: (StaticString, StaticString, StaticString, UInt, UInt32) -> Never = hook_assertionFailure
+        let function4: (StaticString, String, StaticString, UInt, UInt32) -> Never = hook_assertionFailure
+        print(function1, function2, function3, function4)
     }
 
     func testHookFunction() throws {
-        if setjump(&buf) != 0 {
-            return
-        }
-
         XCTAssertEqual(targetFunction(), "target function")
         XCTAssertEqual(replacementFunction(), "replacement function")
         XCTAssertEqual(originalFunction(), "")
@@ -35,9 +38,9 @@ final class SwiftHookTests: XCTestCase {
             return
         }
 
-        // XXXXhook_assertionFailure ⇔ _assertionFailure
+        // hook_assertionFailure ⇔ _assertionFailure
         try SwiftHook.exchangeFuncImplementation(
-            "$s14SwiftHookTests25XXXXhook_assertionFailure__4file4line5flagss5NeverOs12StaticStringV_A2ISus6UInt32VtF",
+            "$s14SwiftHookTests21hook_assertionFailure__4file4line5flagss5NeverOs12StaticStringV_A2ISus6UInt32VtF",
             "$ss17_assertionFailure__4file4line5flagss5NeverOs12StaticStringV_A2HSus6UInt32VtF",
             isMangled: true
         )
@@ -87,8 +90,8 @@ extension SwiftHookTests {
 
         // hook_assertionFailure ⇔ XXXXhook_assertionFailure
         try SwiftHook.exchangeFuncImplementation(
-            "SwiftHookTests.hook_assertionFailure(_: Swift.StaticString, _: Swift.String, file: Swift.StaticString, line: Swift.UInt, flags: Swift.UInt32) -> Swift.Never",
-            "SwiftHookTests.XXXXhook_assertionFailure(_: Swift.StaticString, _: Swift.String, file: Swift.StaticString, line: Swift.UInt, flags: Swift.UInt32) -> Swift.Never",
+            "SwiftHookTests.hook_assertionFailure(_: Swift.StaticString, _: Swift.StaticString, file: Swift.StaticString, line: Swift.UInt, flags: Swift.UInt32) -> Swift.Never",
+            "SwiftHookTests.XXXXhook_assertionFailure(_: Swift.StaticString, _: Swift.StaticString, file: Swift.StaticString, line: Swift.UInt, flags: Swift.UInt32) -> Swift.Never",
             isMangled: false
         )
 
