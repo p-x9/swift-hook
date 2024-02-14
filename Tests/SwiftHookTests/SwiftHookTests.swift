@@ -9,6 +9,27 @@ final class SwiftHookTests: XCTestCase {
         _ = disableExclusivityChecking
     }
 
+    func testHookFunction() throws {
+        if setjump(&buf) != 0 {
+            return
+        }
+
+        XCTAssertEqual(targetFunction(), "target function")
+        XCTAssertEqual(replacementFunction(), "replacement function")
+        XCTAssertEqual(originalFunction(), "")
+
+        try SwiftHook.hookFunction(
+            "$s14SwiftHookTests14targetFunctionSSyF",
+            "$s14SwiftHookTests19replacementFunctionSSyF",
+            "$s14SwiftHookTests16originalFunctionSSyF",
+            isMangled: true
+        )
+
+        XCTAssertEqual(targetFunction(), "replacement function")
+        XCTAssertEqual(replacementFunction(), "replacement function")
+        XCTAssertEqual(originalFunction(), "target function")
+    }
+
     func testExchangeFunc() throws {
         if setjump(&buf) != 0 {
             return
@@ -55,7 +76,8 @@ extension SwiftHookTests {
             isMangled: true
         )
 
-        hook_assertionFailure("aaa", "bbbb", flags: 0)
+        let message = "bbb"
+        hook_assertionFailure("aaa", message, flags: 0)
     }
 
     func testExchangeDemangledFuncInSelfImage() throws {

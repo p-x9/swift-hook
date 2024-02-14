@@ -63,3 +63,16 @@ public func XXXXhook_assertionFailure(
     print( "😃", "XXXhook", message, file, line)
     return longjump(&buf, 1)
 }
+
+
+public func targetFunction() -> String {
+    "target function"
+}
+
+public func replacementFunction() -> String {
+    "replacement function"
+}
+
+public func originalFunction() -> String {
+    ""
+}
