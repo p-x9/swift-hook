@@ -17,10 +17,6 @@ final class SwiftHookTests: XCTestCase {
     }
 
     func testHookFunction() throws {
-        if setjump(&buf) != 0 {
-            return
-        }
-
         XCTAssertEqual(targetFunction(), "target function")
         XCTAssertEqual(replacementFunction(), "replacement function")
         XCTAssertEqual(originalFunction(), "")
