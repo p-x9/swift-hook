@@ -199,18 +199,17 @@ extension SwiftHook {
         print(stdlib_demangleName(replacement))
 #endif
 
-        var replaced: UnsafeMutableRawPointer?
 
+        Self.replaced1 = nil
         let result: Bool = rebindSymbol(
             name: target,
             replacement: replacementSymbol,
-            replaced: &replaced
+            replaced: &Self.replaced1
         )
 
         guard result else { return false }
 
-        guard let replaced,
-              Int(bitPattern: replaced) != -1 else {
+        guard let replaced = Self.replaced1 else {
             return false
         }
 
