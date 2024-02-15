@@ -150,29 +150,29 @@ extension SwiftHook {
 #endif
 
         // hook first function
-        replaced1 = nil
+        Self.replaced1 = nil
         let f2s: Bool = rebindSymbol(
             name: first,
             replacement: secondSymbol,
-            replaced: &replaced1
+            replaced: &Self.replaced1
         )
 
         // hook second function
-        replaced2 = nil
+        Self.replaced2 = nil
         let s2f: Bool = rebindSymbol(
             name: second,
             replacement: firstSymbol,
-            replaced: &replaced2
+            replaced: &Self.replaced2
         )
 
         guard f2s && s2f else {
             return false
         }
 
-        guard replaced1 != nil else {
+        guard Self.replaced1 != nil else {
             throw SwiftHookError.failedToHookFirstFunction
         }
-        guard replaced2 != nil else {
+        guard Self.replaced2 != nil else {
             throw SwiftHookError.failedToHookSecondFunction
         }
 
