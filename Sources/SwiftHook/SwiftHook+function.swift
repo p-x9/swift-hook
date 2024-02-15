@@ -41,7 +41,6 @@ extension SwiftHook {
         throw SwiftHookError.failedToExchangeFuncImplementation
     }
 
-
     public static func hookFunction(
         _ target: String,
         _ replacement: String,
@@ -130,6 +129,12 @@ extension SwiftHook {
         return (firstSymbol, secondSymbol)
     }
 
+}
+
+extension SwiftHook {
+    private static var replaced1: UnsafeMutableRawPointer?
+    private static var replaced2: UnsafeMutableRawPointer?
+
     @discardableResult
     private static func _exchangeFuncImplementation(
         _ first: String,
@@ -144,14 +149,16 @@ extension SwiftHook {
         print(firstSymbol, secondSymbol)
 #endif
 
-        var replaced1 = UnsafeMutableRawPointer(bitPattern: -1)
-        var replaced2 = UnsafeMutableRawPointer(bitPattern: -1)
-
+        // hook first function
+        replaced1 = nil
         let f2s: Bool = rebindSymbol(
             name: first,
             replacement: secondSymbol,
             replaced: &replaced1
         )
+
+        // hook second function
+        replaced2 = nil
         let s2f: Bool = rebindSymbol(
             name: second,
             replacement: firstSymbol,
@@ -162,19 +169,18 @@ extension SwiftHook {
             return false
         }
 
-        guard let replaced1,
-              Int(bitPattern: replaced1) != -1 else {
+        guard replaced1 != nil else {
             throw SwiftHookError.failedToHookFirstFunction
         }
-
-        guard let replaced2,
-              Int(bitPattern: replaced2) != -1 else {
+        guard replaced2 != nil else {
             throw SwiftHookError.failedToHookSecondFunction
         }
 
         return true
     }
+}
 
+extension SwiftHook {
     @discardableResult
     private static func _hookFuncImplementation(
         _ target: String,
@@ -193,7 +199,7 @@ extension SwiftHook {
         print(stdlib_demangleName(replacement))
 #endif
 
-        var replaced = UnsafeMutableRawPointer(bitPattern: -1)
+        var replaced: UnsafeMutableRawPointer?
 
         let result: Bool = rebindSymbol(
             name: target,
@@ -209,7 +215,7 @@ extension SwiftHook {
         }
 
         if let original {
-            var originalReplaced = UnsafeMutableRawPointer(bitPattern: -1)
+            var originalReplaced: UnsafeMutableRawPointer?
             let result: Bool = rebindSymbol(
                 name: original,
                 replacement: replaced,
