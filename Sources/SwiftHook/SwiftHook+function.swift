@@ -52,12 +52,23 @@ extension SwiftHook {
 
         var target: String = target
         var replacement: String = replacement
+        var original: String? = original
 
         let (_, replacementSymbol) = try searchSymbols(
             &target,
             &replacement,
             isMangled: isMangled
         )
+
+        if let originalName = original,
+           let (_, symbol) = MachOImage.symbols(
+            named: originalName,
+            mangled: isMangled
+           ).first(where: {
+               $1.nlist.sectionNumber != nil
+           }) {
+            original = String(cString: symbol.nameC + 1)
+        }
 
         isSucceeded = try _hookFuncImplementation(
             target,
