@@ -27,5 +27,6 @@ public enum SwiftHookError: Error {
     case failedToExchangeMethodImplementation
 
     case failedToHookFunction
+    case failedToHookMethod
     case failedToSetOriginal
 }

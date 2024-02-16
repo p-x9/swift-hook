@@ -34,20 +34,54 @@ extension SwiftHook {
 
         throw SwiftHookError.failedToExchangeMethodImplementation
     }
+
+    public static func hookMethod(
+        _ target: String,
+        _ replacement: String,
+        _ original: String? = nil,
+        for `class`: AnyClass
+    ) throws {
+        var isSucceeded: Bool
+        isSucceeded = hookImplWithObjCRuntime(
+            target,
+            replacement,
+            original,
+            for: `class`
+        )
+        if isSucceeded { return }
+
+        isSucceeded = hookImplWithVtable(
+            target,
+            replacement,
+            original,
+            for: `class`
+        )
+        if isSucceeded { return }
+
+        throw SwiftHookError.failedToHookMethod
+    }
 }
 
 extension SwiftHook {
-    private static func exchangeImplWithVtable(
+    private static func searchSymbolsFromVtable(
         _ first: String,
         _ second: String,
+        _ third: String? = nil,
         for `class`: AnyClass
-    ) -> Bool {
+    ) -> (
+        UnsafeMutablePointer<ClassMetadata.SIMP?>?,
+        UnsafeMutablePointer<ClassMetadata.SIMP?>?,
+        UnsafeMutablePointer<ClassMetadata.SIMP?>?
+    ) {
         guard let metadata = reflect(`class`.self) as? ClassMetadata else {
-            return false
+            return (nil, nil, nil)
         }
+
+        let shouldSearchThird = third != nil
 
         var firstEntry: UnsafeMutablePointer<ClassMetadata.SIMP?>?
         var secondEntry: UnsafeMutablePointer<ClassMetadata.SIMP?>?
+        var thirdEntry: UnsafeMutablePointer<ClassMetadata.SIMP?>?
 
         for entry in metadata.vtable {
             let entryPtr = unsafeBitCast(entry.pointee, to: UnsafeRawPointer.self)
@@ -59,7 +93,9 @@ extension SwiftHook {
             var mangled = String(cString: symbol.nameC)
             if mangled == first { firstEntry = entry }
             if mangled == second { secondEntry = entry }
-            if firstEntry != nil && secondEntry != nil {
+            if let third, mangled == third { thirdEntry = entry }
+            if firstEntry != nil && secondEntry != nil,
+               !shouldSearchThird || thirdEntry != nil {
                 break
             }
 
@@ -67,7 +103,9 @@ extension SwiftHook {
             mangled = String(cString: symbol.nameC + 1)
             if mangled == first { firstEntry = entry }
             if mangled == second { secondEntry = entry }
-            if firstEntry != nil && secondEntry != nil {
+            if let third, mangled == third { thirdEntry = entry }
+            if firstEntry != nil && secondEntry != nil,
+               !shouldSearchThird || thirdEntry != nil {
                 break
             }
 
@@ -75,10 +113,28 @@ extension SwiftHook {
             let demangled = stdlib_demangleName(mangled)
             if demangled == first { firstEntry = entry }
             if demangled == second { secondEntry = entry }
-            if firstEntry != nil && secondEntry != nil {
+            if let third, demangled == third { thirdEntry = entry }
+            if firstEntry != nil && secondEntry != nil,
+               !shouldSearchThird || thirdEntry != nil {
                 break
             }
         }
+
+        return (firstEntry, secondEntry, thirdEntry)
+    }
+}
+
+extension SwiftHook {
+    private static func exchangeImplWithVtable(
+        _ first: String,
+        _ second: String,
+        for `class`: AnyClass
+    ) -> Bool {
+        let (firstEntry, secondEntry, _) = searchSymbolsFromVtable(
+            first,
+            second,
+            for: `class`
+        )
 
         if let firstEntry, let secondEntry  {
             var tmp: ClassMetadata.SIMP?
@@ -110,6 +166,73 @@ extension SwiftHook {
         }
 
         method_exchangeImplementations(first, second)
+
+        return true
+    }
+}
+
+extension SwiftHook {
+    private static func hookImplWithVtable(
+        _ target: String,
+        _ replacement: String,
+        _ original: String?,
+        for `class`: AnyClass
+    ) -> Bool {
+        let entries = searchSymbolsFromVtable(
+            target,
+            replacement,
+            original,
+            for: `class`
+        )
+        let (targetEntry, replacementEntry, originalEntry) = entries
+
+        if original != nil && originalEntry == nil {
+            return false
+        }
+
+        if let targetEntry, let replacementEntry  {
+            originalEntry?.pointee = targetEntry.pointee
+            targetEntry.pointee = replacementEntry.pointee
+
+            return true
+        }
+
+        return false
+    }
+
+    private static func hookImplWithObjCRuntime(
+        _ target: String,
+        _ replacement: String,
+        _ original: String?,
+        for `class`: AnyClass
+    ) -> Bool {
+        let targetSelector = NSSelectorFromString(target)
+        let replacementSelector = NSSelectorFromString(replacement)
+
+        let target = class_getInstanceMethod(`class`, targetSelector) ??
+        class_getClassMethod(`class`, targetSelector)
+        let replacement = class_getInstanceMethod(`class`, replacementSelector) ??
+        class_getClassMethod(`class`, replacementSelector)
+
+        var originalMethod: Method?
+        if let original {
+            let originalSelector = NSSelectorFromString(original)
+            originalMethod = class_getInstanceMethod(`class`, originalSelector) ??
+            class_getClassMethod(`class`, originalSelector)
+        }
+
+        guard original == nil || originalMethod != nil else {
+            return false
+        }
+
+        guard let target, let replacement else {
+            return false
+        }
+
+        if let originalMethod {
+            method_setImplementation(originalMethod, method_getImplementation(target))
+        }
+        method_setImplementation(target, method_getImplementation(replacement))
 
         return true
     }
