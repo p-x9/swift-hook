@@ -83,37 +83,20 @@ extension SwiftHook {
 }
 
 extension SwiftHook {
+    @inline(__always)
     private static func searchSymbols(
         _ first: inout String,
         _ second: inout String,
         isMangled: Bool
     ) throws -> (UnsafeMutableRawPointer, UnsafeMutableRawPointer) {
-        var firstSymbol: UnsafeMutableRawPointer?
-        var secondSymbol: UnsafeMutableRawPointer?
-
-        if let (machO, symbol) = MachOImage.symbols(
-            named: first,
-            mangled: isMangled
-        ).first(where: {
-            $1.nlist.sectionNumber != nil
-        }) {
-            firstSymbol = .init(
-                mutating: machO.ptr.advanced(by: symbol.offset)
-            )
-            first = String(cString: symbol.nameC + 1)
-        }
-
-        if let (machO, symbol) = MachOImage.symbols(
-            named: second,
-            mangled: isMangled
-        ).first(where: {
-            $1.nlist.sectionNumber != nil
-        }) {
-            secondSymbol = .init(
-                mutating: machO.ptr.advanced(by: symbol.offset)
-            )
-            second = String(cString: symbol.nameC + 1)
-        }
+        let firstSymbol: UnsafeMutableRawPointer? = searchSymbol(
+            &first,
+            isMangled: isMangled
+        )
+        let secondSymbol: UnsafeMutableRawPointer? = searchSymbol(
+            &second,
+            isMangled: isMangled
+        )
 
         if firstSymbol == nil && secondSymbol == nil {
             throw SwiftHookError.firstAndSecondSymbolAreNotFound
@@ -129,6 +112,27 @@ extension SwiftHook {
         return (firstSymbol, secondSymbol)
     }
 
+    @inline(__always)
+    private static func searchSymbol(
+        _ name: inout String,
+        isMangled: Bool
+    ) -> UnsafeMutableRawPointer? {
+        var symbolAddress: UnsafeMutableRawPointer?
+
+        if let (machO, symbol) = MachOImage.symbols(
+            named: name,
+            mangled: isMangled
+        ).first(where: {
+            $1.nlist.sectionNumber != nil
+        }) {
+            symbolAddress = .init(
+                mutating: machO.ptr.advanced(by: symbol.offset)
+            )
+            name = String(cString: symbol.nameC + 1)
+        }
+
+        return symbolAddress
+    }
 }
 
 extension SwiftHook {
