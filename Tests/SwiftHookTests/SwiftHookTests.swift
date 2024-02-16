@@ -138,7 +138,43 @@ extension SwiftHookTests {
         XCTAssertEqual(item.add2(5), 10)
     }
 
+    func testHookSwiftClassMethod() throws {
+        let item = SwiftClassItem()
+        XCTAssertEqual(item.target(), "target")
+        XCTAssertEqual(item.replacement(), "replacement")
+        XCTAssertEqual(item.original(), "original")
+
+        try SwiftHook.hookMethod(
+            "SwiftHookTests.SwiftClassItem.target() -> Swift.String",
+            "SwiftHookTests.SwiftClassItem.replacement() -> Swift.String",
+            "SwiftHookTests.SwiftClassItem.original() -> Swift.String",
+            for: SwiftClassItem.self
+        )
+
+        XCTAssertEqual(item.target(), "replacement")
+        XCTAssertEqual(item.replacement(), "replacement")
+        XCTAssertEqual(item.original(), "target")
+    }
+
     func testExchangeObjCClassMethod() throws {
+        let item = ObjCClassItem()
+        XCTAssertEqual(item.target(), "target")
+        XCTAssertEqual(item.replacement(), "replacement")
+        XCTAssertEqual(item.original(), "original")
+
+        try SwiftHook.hookMethod(
+            "target",
+            "replacement",
+            "original",
+            for: ObjCClassItem.self
+        )
+
+        XCTAssertEqual(item.target(), "replacement")
+        XCTAssertEqual(item.replacement(), "replacement")
+        XCTAssertEqual(item.original(), "target")
+    }
+
+    func testHookObjCClassMethod() throws {
         let item = ObjCClassItem()
         print(item.add2(5))
         XCTAssertEqual(item.add2(5), 7)
