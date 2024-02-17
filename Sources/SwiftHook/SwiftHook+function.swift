@@ -8,7 +8,6 @@
 
 import Foundation
 import MachO
-@_implementationOnly import fishhook
 @_implementationOnly import Echo
 @_implementationOnly import MachOKit
 
@@ -52,28 +51,27 @@ extension SwiftHook {
         var target: String = target
         var replacement: String = replacement
         var original: String? = original
+        var originalSymbol: UnsafeMutableRawPointer?
 
-        let (_, replacementSymbol) = try searchSymbols(
+        let (targetSymbol, replacementSymbol) = try searchSymbols(
             &target,
             &replacement,
             isMangled: isMangled
         )
 
-        if let originalName = original,
-           let (_, symbol) = MachOImage.symbols(
-            named: originalName,
-            mangled: isMangled
-           ).first(where: {
-               $1.nlist.sectionNumber != nil
-           }) {
-            original = String(cString: symbol.nameC + 1)
+        if let originalName = original {
+            var originalName = originalName
+            originalSymbol = searchSymbol(&originalName, isMangled: isMangled)
+            original = originalName
         }
 
         isSucceeded = try _hookFuncImplementation(
-            target,
-            replacement,
-            replacementSymbol,
-            original: original
+            target: target,
+            replacement: replacement,
+            original: original,
+            targetSymbol: targetSymbol,
+            replacementSymbol: replacementSymbol,
+            originalSymbol: originalSymbol
         )
 
         if isSucceeded { return }
@@ -83,37 +81,20 @@ extension SwiftHook {
 }
 
 extension SwiftHook {
+    @inline(__always)
     private static func searchSymbols(
         _ first: inout String,
         _ second: inout String,
         isMangled: Bool
     ) throws -> (UnsafeMutableRawPointer, UnsafeMutableRawPointer) {
-        var firstSymbol: UnsafeMutableRawPointer?
-        var secondSymbol: UnsafeMutableRawPointer?
-
-        if let (machO, symbol) = MachOImage.symbols(
-            named: first,
-            mangled: isMangled
-        ).first(where: {
-            $1.nlist.sectionNumber != nil
-        }) {
-            firstSymbol = .init(
-                mutating: machO.ptr.advanced(by: symbol.offset)
-            )
-            first = String(cString: symbol.nameC + 1)
-        }
-
-        if let (machO, symbol) = MachOImage.symbols(
-            named: second,
-            mangled: isMangled
-        ).first(where: {
-            $1.nlist.sectionNumber != nil
-        }) {
-            secondSymbol = .init(
-                mutating: machO.ptr.advanced(by: symbol.offset)
-            )
-            second = String(cString: symbol.nameC + 1)
-        }
+        let firstSymbol: UnsafeMutableRawPointer? = searchSymbol(
+            &first,
+            isMangled: isMangled
+        )
+        let secondSymbol: UnsafeMutableRawPointer? = searchSymbol(
+            &second,
+            isMangled: isMangled
+        )
 
         if firstSymbol == nil && secondSymbol == nil {
             throw SwiftHookError.firstAndSecondSymbolAreNotFound
@@ -129,12 +110,30 @@ extension SwiftHook {
         return (firstSymbol, secondSymbol)
     }
 
+    @inline(__always)
+    private static func searchSymbol(
+        _ name: inout String,
+        isMangled: Bool
+    ) -> UnsafeMutableRawPointer? {
+        var symbolAddress: UnsafeMutableRawPointer?
+
+        if let (machO, symbol) = MachOImage.symbols(
+            named: name,
+            mangled: isMangled
+        ).first(where: {
+            $1.nlist.sectionNumber != nil
+        }) {
+            symbolAddress = .init(
+                mutating: machO.ptr.advanced(by: symbol.offset)
+            )
+            name = String(cString: symbol.nameC + 1)
+        }
+
+        return symbolAddress
+    }
 }
 
 extension SwiftHook {
-    private static var replaced1: UnsafeMutableRawPointer?
-    private static var replaced2: UnsafeMutableRawPointer?
-
     @discardableResult
     private static func _exchangeFuncImplementation(
         _ first: String,
@@ -150,29 +149,31 @@ extension SwiftHook {
 #endif
 
         // hook first function
-        Self.replaced1 = nil
-        let f2s: Bool = rebindSymbol(
-            name: first,
-            replacement: secondSymbol,
-            replaced: &Self.replaced1
+        let f2sInfo = HookFunctionInfo(
+            target: first,
+            targetAddress: firstSymbol,
+            replacement: second,
+            replacementAddress: secondSymbol
         )
+        let f2s = CFunctionHooker.fishhook(f2sInfo)
 
         // hook second function
-        Self.replaced2 = nil
-        let s2f: Bool = rebindSymbol(
-            name: second,
-            replacement: firstSymbol,
-            replaced: &Self.replaced2
+        let s2fInfo = HookFunctionInfo(
+            target: second,
+            targetAddress: secondSymbol,
+            replacement: first,
+            replacementAddress: firstSymbol
         )
+        let s2f = CFunctionHooker.fishhook(s2fInfo)
 
         guard f2s && s2f else {
             return false
         }
 
-        guard Self.replaced1 != nil else {
+        guard f2sInfo.replacedAddress != nil else {
             throw SwiftHookError.failedToHookFirstFunction
         }
-        guard Self.replaced2 != nil else {
+        guard s2fInfo.replacedAddress != nil else {
             throw SwiftHookError.failedToHookSecondFunction
         }
 
@@ -183,10 +184,12 @@ extension SwiftHook {
 extension SwiftHook {
     @discardableResult
     private static func _hookFuncImplementation(
-        _ target: String,
-        _ replacement: String,
-        _ replacementSymbol:  UnsafeMutableRawPointer,
-        original: String?
+        target: String,
+        replacement: String,
+        original: String?,
+        targetSymbol: UnsafeMutableRawPointer,
+        replacementSymbol: UnsafeMutableRawPointer,
+        originalSymbol: UnsafeMutableRawPointer?
     ) throws -> Bool {
 
 #if DEBUG
@@ -199,31 +202,31 @@ extension SwiftHook {
         print(stdlib_demangleName(replacement))
 #endif
 
-
-        Self.replaced1 = nil
-        let result: Bool = rebindSymbol(
-            name: target,
-            replacement: replacementSymbol,
-            replaced: &Self.replaced1
+        let targetHookInfo = HookFunctionInfo(
+            target: target,
+            targetAddress: targetSymbol,
+            replacement: replacement,
+            replacementAddress: replacementSymbol
         )
+        let result: Bool = CFunctionHooker.fishhook(targetHookInfo)
 
         guard result else { return false }
 
-        guard let replaced = Self.replaced1 else {
+        guard let replaced = targetHookInfo.replacedAddress else {
             return false
         }
 
-        if let original {
-            var originalReplaced: UnsafeMutableRawPointer?
-            let result: Bool = rebindSymbol(
-                name: original,
-                replacement: replaced,
-                replaced: &originalReplaced
+        if let original, let originalSymbol {
+            let originalHookInfo = HookFunctionInfo(
+                target: original,
+                targetAddress: originalSymbol,
+                replacement: target,
+                replacementAddress: replaced
             )
+            let result: Bool = CFunctionHooker.fishhook(originalHookInfo)
             guard result else { throw SwiftHookError.failedToSetOriginal }
 
-            guard let originalReplaced,
-                  Int(bitPattern: originalReplaced) != -1 else {
+            guard originalHookInfo.replacedAddress != nil else {
                 throw SwiftHookError.failedToSetOriginal
             }
         }
