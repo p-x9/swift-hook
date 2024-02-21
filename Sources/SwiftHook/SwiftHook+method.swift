@@ -38,8 +38,7 @@ extension SwiftHook {
             first,
             second,
             firstEntry,
-            secondEntry,
-            for: `class`
+            secondEntry
         )
         if isSucceeded { return }
 
@@ -265,8 +264,7 @@ extension SwiftHook {
         _ first: String,
         _ second: String,
         _ firstEntry: UnsafeMutablePointer<ClassMetadata.SIMP?>?,
-        _ secondEntry: UnsafeMutablePointer<ClassMetadata.SIMP?>?,
-        for `class`: AnyClass
+        _ secondEntry: UnsafeMutablePointer<ClassMetadata.SIMP?>?
     ) -> Bool {
         if let firstEntry, let secondEntry  {
             var tmp: ClassMetadata.SIMP?
