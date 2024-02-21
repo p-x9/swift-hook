@@ -85,6 +85,8 @@ extension SwiftHook {
         for `class`: AnyClass
     ) throws {
         var isSucceeded: Bool
+
+        /* Use Objective-C Runtime */
         isSucceeded = hookImplWithObjCRuntime(
             target,
             replacement,
@@ -93,13 +95,87 @@ extension SwiftHook {
         )
         if isSucceeded { return }
 
-        isSucceeded = hookImplWithVtable(
+        let entries = searchSymbolsFromVtable(
             target,
             replacement,
             original,
             for: `class`
         )
+        let (targetEntry, replacementEntry, originalEntry) = entries
+
+        var original: String? = original
+        var originalSymbol: UnsafeMutableRawPointer?
+        if originalEntry == nil,
+           let originalName = original {
+            var originalName = originalName
+            originalSymbol = searchSymbol(&originalName, isMangled: false)
+            original = originalName
+        }
+
+        /* Swap VTable entry */
+        isSucceeded = hookImplWithVtable(
+            target,
+            replacement,
+            original,
+            targetEntry,
+            replacementEntry,
+            originalEntry,
+            originalSymbol
+        )
         if isSucceeded { return }
+
+        var target: String = target
+        var replacement: String = replacement
+        let (targetSymbol, replacementSymbol) = try searchSymbols(
+            &target,
+            &replacement,
+            isMangled: false
+        )
+
+        /* Other */
+        var replacedSymbol: UnsafeMutableRawPointer?
+        switch (targetEntry, replacementEntry, targetSymbol, replacementSymbol) {
+        case let (targetEntry?, nil, _, replacementSymbol?):
+            replacedSymbol = try hookImplWithVtableWithSymbol(
+                target,
+                replacement,
+                targetEntry,
+                replacementSymbol
+            )
+        case let (nil, replacementEntry?, targetSymbol?, _):
+            replacedSymbol = try hookImplWithVtableWithSymbol(
+                target,
+                replacement,
+                targetSymbol,
+                replacementEntry
+            )
+        case let (nil, nil, targetSymbol?, replacementSymbol?):
+            replacedSymbol = try hookImplWithVtableWithSymbol(
+                target,
+                replacement,
+                targetSymbol,
+                replacementSymbol
+            )
+        default: break
+        }
+
+        if let replacedSymbol {
+            if let originalEntry {
+                originalEntry.pointee = unsafeBitCast(replacedSymbol, to: ClassMetadata.SIMP.self)
+            } else if let original, let originalSymbol {
+               try  _hookFuncImplementation(
+                    target: original,
+                    replacement: target,
+                    original: nil,
+                    targetSymbol: originalSymbol,
+                    replacementSymbol: replacedSymbol,
+                    originalSymbol: nil
+                )
+            } else if original != nil {
+                throw SwiftHookError.failedToSetOriginal
+            }
+            return
+        }
 
         throw SwiftHookError.failedToHookMethod
     }
@@ -250,28 +326,81 @@ extension SwiftHook {
         _ target: String,
         _ replacement: String,
         _ original: String?,
-        for `class`: AnyClass
+        _ targetEntry: UnsafeMutablePointer<ClassMetadata.SIMP?>?,
+        _ replacementEntry: UnsafeMutablePointer<ClassMetadata.SIMP?>?,
+        _ originalEntry: UnsafeMutablePointer<ClassMetadata.SIMP?>?,
+        _ originalSymbol: UnsafeMutableRawPointer?
     ) -> Bool {
-        let entries = searchSymbolsFromVtable(
-            target,
-            replacement,
-            original,
-            for: `class`
-        )
-        let (targetEntry, replacementEntry, originalEntry) = entries
-
-        if original != nil && originalEntry == nil {
+        if original != nil && originalEntry == nil && originalSymbol == nil {
             return false
         }
 
         if let targetEntry, let replacementEntry  {
-            originalEntry?.pointee = targetEntry.pointee
+            if let originalEntry {
+                originalEntry.pointee = targetEntry.pointee
+            } else if let original, let originalSymbol {
+                do {
+                    try _hookFuncImplementation(
+                        target: original,
+                        replacement: target,
+                        original: nil,
+                        targetSymbol: originalSymbol,
+                        replacementSymbol: unsafeBitCast(targetEntry.pointee, to: UnsafeMutableRawPointer.self),
+                        originalSymbol: nil
+                    )
+                } catch { return false }
+            }
             targetEntry.pointee = replacementEntry.pointee
 
             return true
         }
 
         return false
+    }
+
+    private static func hookImplWithVtableWithSymbol(
+        _ target: String,
+        _ replacement: String,
+        _ targetEntry: UnsafeMutablePointer<ClassMetadata.SIMP?>,
+        _ replacementSymbol: UnsafeMutableRawPointer
+    ) throws -> UnsafeMutableRawPointer {
+        let targetOriginal = targetEntry.pointee
+        targetEntry.pointee = unsafeBitCast(replacementSymbol, to: ClassMetadata.SIMP.self)
+        return unsafeBitCast(targetOriginal, to: UnsafeMutableRawPointer.self)
+    }
+
+    private static func hookImplWithVtableWithSymbol(
+        _ target: String,
+        _ replacement: String,
+        _ targetSymbol: UnsafeMutableRawPointer,
+        _ replacementEntry: UnsafeMutablePointer<ClassMetadata.SIMP?>
+    ) throws -> UnsafeMutableRawPointer {
+        try _hookFuncImplementation(
+            target: target,
+            replacement: replacement,
+            original: nil,
+            targetSymbol: targetSymbol,
+            replacementSymbol: unsafeBitCast(replacementEntry.pointee, to: UnsafeMutableRawPointer.self),
+            originalSymbol: nil
+        )
+        return targetSymbol
+    }
+
+    private static func hookImplWithVtableWithSymbol(
+        _ target: String,
+        _ replacement: String,
+        _ targetSymbol: UnsafeMutableRawPointer,
+        _ replacementSymbol: UnsafeMutableRawPointer
+    ) throws -> UnsafeMutableRawPointer {
+        try _hookFuncImplementation(
+            target: target,
+            replacement: replacement,
+            original: nil,
+            targetSymbol: targetSymbol,
+            replacementSymbol: replacementSymbol,
+            originalSymbol: nil
+        )
+        return targetSymbol
     }
 
     private static func hookImplWithObjCRuntime(
