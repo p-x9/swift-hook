@@ -18,6 +18,8 @@ extension SwiftHook {
         for `class`: AnyClass
     ) throws {
         var isSucceeded: Bool
+
+        /* Use Objective-C Runtime */
         isSucceeded = exchangeImplWithObjCRuntime(
             first,
             second,
@@ -25,12 +27,53 @@ extension SwiftHook {
         )
         if isSucceeded { return }
 
-        isSucceeded = exchangeImplWithVtable(
+        let (firstEntry, secondEntry, _) = searchSymbolsFromVtable(
             first,
             second,
             for: `class`
         )
+
+        /* Swap VTable entry */
+        isSucceeded = exchangeImplWithVtable(
+            first,
+            second,
+            firstEntry,
+            secondEntry,
+            for: `class`
+        )
         if isSucceeded { return }
+
+        var first: String = first
+        var second: String = second
+        let (firstSymbol, secondSymbol) = try searchSymbols(
+            &first,
+            &second,
+            isMangled: false
+        )
+
+        /* Other */
+        switch (firstEntry, secondEntry, firstSymbol, secondSymbol) {
+        case let (firstEntry?, nil, _, secondSymbol?):
+            try exchangeImplWithVtableAndSymbol(
+                first,
+                second,
+                firstEntry,
+                secondSymbol
+            )
+            return
+        case let (nil, secondEntry?, firstSymbol?, _):
+            try exchangeImplWithVtableAndSymbol(
+                second,
+                first,
+                secondEntry,
+                firstSymbol
+            )
+            return
+        case let (nil, nil, firstSymbol?, secondSymbol?):
+            try _exchangeFuncImplementation(first, second, firstSymbol, secondSymbol)
+            return
+        default: break
+        }
 
         throw SwiftHookError.failedToExchangeMethodImplementation
     }
@@ -122,20 +165,33 @@ extension SwiftHook {
 
         return (firstEntry, secondEntry, thirdEntry)
     }
+
+    private static func searchSymbols(
+        _ first: inout String,
+        _ second: inout String,
+        isMangled: Bool
+    ) throws -> (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) {
+        let firstSymbol: UnsafeMutableRawPointer? = searchSymbol(
+            &first,
+            isMangled: isMangled
+        )
+        let secondSymbol: UnsafeMutableRawPointer? = searchSymbol(
+            &second,
+            isMangled: isMangled
+        )
+
+        return (firstSymbol, secondSymbol)
+    }
 }
 
 extension SwiftHook {
     private static func exchangeImplWithVtable(
         _ first: String,
         _ second: String,
+        _ firstEntry: UnsafeMutablePointer<ClassMetadata.SIMP?>?,
+        _ secondEntry: UnsafeMutablePointer<ClassMetadata.SIMP?>?,
         for `class`: AnyClass
     ) -> Bool {
-        let (firstEntry, secondEntry, _) = searchSymbolsFromVtable(
-            first,
-            second,
-            for: `class`
-        )
-
         if let firstEntry, let secondEntry  {
             var tmp: ClassMetadata.SIMP?
             tmp = firstEntry.pointee
@@ -146,6 +202,24 @@ extension SwiftHook {
         }
 
         return false
+    }
+
+    private static func exchangeImplWithVtableAndSymbol(
+        _ first: String,
+        _ second: String,
+        _ firstEntry: UnsafeMutablePointer<ClassMetadata.SIMP?>,
+        _ secondSymbol: UnsafeMutableRawPointer
+    ) throws {
+        let tmp = firstEntry.pointee
+        firstEntry.pointee = unsafeBitCast(secondSymbol, to: ClassMetadata.SIMP.self)
+        try _hookFuncImplementation(
+            target: second,
+            replacement: first,
+            original: nil,
+            targetSymbol: secondSymbol,
+            replacementSymbol: unsafeBitCast(tmp, to: UnsafeMutableRawPointer.self),
+            originalSymbol: nil
+        )
     }
 
     private static func exchangeImplWithObjCRuntime(

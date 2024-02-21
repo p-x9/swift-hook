@@ -111,7 +111,7 @@ extension SwiftHook {
     }
 
     @inline(__always)
-    private static func searchSymbol(
+    package static func searchSymbol(
         _ name: inout String,
         isMangled: Bool
     ) -> UnsafeMutableRawPointer? {
@@ -135,7 +135,7 @@ extension SwiftHook {
 
 extension SwiftHook {
     @discardableResult
-    private static func _exchangeFuncImplementation(
+    package static func _exchangeFuncImplementation(
         _ first: String,
         _ second: String,
         _ firstSymbol:  UnsafeMutableRawPointer,
@@ -183,7 +183,7 @@ extension SwiftHook {
 
 extension SwiftHook {
     @discardableResult
-    private static func _hookFuncImplementation(
+    package static func _hookFuncImplementation(
         target: String,
         replacement: String,
         original: String?,
