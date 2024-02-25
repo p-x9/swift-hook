@@ -15,13 +15,13 @@ func setjump(_: UnsafeMutablePointer<jmp_buf>) -> Int32
 func longjump(_: UnsafeMutablePointer<jmp_buf>, _: Int32) -> Never
 
 func new_empty_buf() -> jmp_buf {
-    var buf = Data(count: MemoryLayout<jmp_buf>.size)
-    return withUnsafeBytes(of: &buf) { buf in
+    let buf = Data(count: MemoryLayout<jmp_buf>.size)
+    return buf.withUnsafeBytes { buf in
         guard let baseAddress = buf.baseAddress else {
             fatalError()
         }
         return baseAddress
-            .assumingMemoryBound(to: jmp_buf.self)
+            .bindMemory(to: jmp_buf.self, capacity: 1)
             .pointee
     }
 }
