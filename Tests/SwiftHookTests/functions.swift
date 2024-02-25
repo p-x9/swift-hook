@@ -15,7 +15,7 @@ func setjump(_: UnsafeMutablePointer<jmp_buf>) -> Int32
 func longjump(_: UnsafeMutablePointer<jmp_buf>, _: Int32) -> Never
 
 func new_empty_buf() -> jmp_buf {
-    (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    (.zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero)
 }
 
 var buf: jmp_buf = new_empty_buf()
