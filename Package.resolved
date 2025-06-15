@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/p-x9/MachOKit-SPM",
       "state" : {
-        "revision" : "388ee9af3b0bcd87fbb8b436952aeae093c8e6e8",
-        "version" : "0.32.0"
+        "revision" : "3d33a40319f5a7be4df867e8a6d722c73264cd00",
+        "version" : "0.35.1"
       }
     },
     {
@@ -34,15 +34,6 @@
       "state" : {
         "revision" : "3e95ba32cd1b4c877f6163e8eea54afc4e63bf9f",
         "version" : "0.0.3"
-      }
-    },
-    {
-      "identity" : "swift-fileio",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/p-x9/swift-fileio.git",
-      "state" : {
-        "revision" : "23349fe1eb23c6ca2876d461a46ff60c0fa92f9c",
-        "version" : "0.9.0"
       }
     }
   ],
