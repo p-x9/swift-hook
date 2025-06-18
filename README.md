@@ -69,7 +69,7 @@ SwiftHook.exchangeFuncImplementation(
 SwiftHook.exchangeFuncImplementation(
     "$s14SwiftHookTests21hook_assertionFailure__4file4line5flagss5NeverOs12StaticStringV_SSAISus6UInt32VtF",
     "$s14SwiftHookTests25XXXXhook_assertionFailure__4file4line5flagss5NeverOs12StaticStringV_A2ISus6UInt32VtF",
-    isMangled: false
+    isMangled: true
 )
 ```
 
