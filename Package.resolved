@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/p-x9/MachOKit-SPM",
       "state" : {
-        "revision" : "3cb449a298f693c3bfd95e443e073d70d3039c13",
-        "version" : "0.36.0"
+        "revision" : "e2aba40beadf09325803c0158951057e8e648790",
+        "version" : "0.40.0"
       }
     },
     {
